@@ -1,58 +1,164 @@
 <template>
-  <div class="hello">
-    <h1>{{ msg }}</h1>
-    <p>
-      For a guide and recipes on how to configure / customize this project,<br>
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener">vue-cli documentation</a>.
-    </p>
-    <h3>Installed CLI Plugins</h3>
-    <ul>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-babel" target="_blank" rel="noopener">babel</a></li>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-eslint" target="_blank" rel="noopener">eslint</a></li>
-    </ul>
-    <h3>Essential Links</h3>
-    <ul>
-      <li><a href="https://vuejs.org" target="_blank" rel="noopener">Core Docs</a></li>
-      <li><a href="https://forum.vuejs.org" target="_blank" rel="noopener">Forum</a></li>
-      <li><a href="https://chat.vuejs.org" target="_blank" rel="noopener">Community Chat</a></li>
-      <li><a href="https://twitter.com/vuejs" target="_blank" rel="noopener">Twitter</a></li>
-      <li><a href="https://news.vuejs.org" target="_blank" rel="noopener">News</a></li>
-    </ul>
-    <h3>Ecosystem</h3>
-    <ul>
-      <li><a href="https://router.vuejs.org" target="_blank" rel="noopener">vue-router</a></li>
-      <li><a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a></li>
-      <li><a href="https://github.com/vuejs/vue-devtools#vue-devtools" target="_blank" rel="noopener">vue-devtools</a></li>
-      <li><a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener">vue-loader</a></li>
-      <li><a href="https://github.com/vuejs/awesome-vue" target="_blank" rel="noopener">awesome-vue</a></li>
-    </ul>
+  <div>
+    <vxe-toolbar>
+      <template #buttons>
+        <vxe-button @click="validEvent">快速校验</vxe-button>
+        <vxe-button @click="fullValidEvent">完整快速校验</vxe-button>
+        <vxe-button @click="selectValidEvent">选中行校验</vxe-button>
+        <vxe-button @click="getSelectEvent">获取选中</vxe-button>
+        <vxe-button @click="getUpdateEvent">获取修改</vxe-button>
+      </template>
+    </vxe-toolbar>
+
+    <vxe-table
+      resizable
+      show-overflow
+      keep-source
+      ref="xTable"
+      :edit-rules="validRules"
+      :edit-config="{ trigger: 'click', mode: 'cell', showStatus: true }"
+      :checkbox-config="{ labelField: 'id' }"
+      :data="tableData"
+    >
+      <vxe-column type="checkbox" title="ID" tree-node></vxe-column>
+      <vxe-column field="name" title="Name" :edit-render="{}">
+        <template #edit="scope">
+          <vxe-input
+            v-model="scope.row.name"
+            type="text"
+            @change="$refs.xTable.updateStatus(scope)"
+          ></vxe-input>
+        </template>
+      </vxe-column>
+      <vxe-column field="size" title="Size" :edit-render="{}">
+        <template #edit="scope">
+          <vxe-input
+            v-model="scope.row.size"
+            type="text"
+            @change="$refs.xTable.updateStatus(scope)"
+          ></vxe-input>
+        </template>
+      </vxe-column>
+      <vxe-column field="type" title="Type" :edit-render="{}">
+        <template #edit="scope">
+          <vxe-input
+            v-model="scope.row.type"
+            type="text"
+            @change="$refs.xTable.updateStatus(scope)"
+          ></vxe-input>
+        </template>
+      </vxe-column>
+      <vxe-column field="date" title="Date" :edit-render="{}">
+        <template #edit="scope">
+          <vxe-input
+            v-model="scope.row.date"
+            type="date"
+            transfer
+            @change="$refs.xTable.updateStatus(scope)"
+          ></vxe-input>
+        </template>
+      </vxe-column>
+    </vxe-table>
   </div>
 </template>
 
 <script>
+import VXETable from "vxe-table";
+
 export default {
-  name: 'HelloWorld',
-  props: {
-    msg: String
-  }
-}
+  data() {
+    return {
+      tableData: [
+        {
+          id: 10000,
+          parentId: null,
+          name: "",
+          type: "mp3",
+          size: 1024,
+          date: "2020-08-01",
+        }
+      ],
+      treeConfig: {
+        transform: true,
+        rowField: "id",
+        parentField: "parentId",
+      },
+      validRules: {
+        name: [
+          { required: true, message: "app.body.valid.rName" },
+          { min: 3, max: 50, message: "文件名长度在 3 到 50 个字符" },
+        ],
+      },
+    };
+  },
+  methods: {
+    async validEvent() {
+      const $table = this.$refs.xTable;
+      const errMap = await $table.validate().catch((errMap) => errMap);
+      if (errMap) {
+        VXETable.modal.message({ status: "error", message: "校验不通过！" });
+      } else {
+        VXETable.modal.message({ status: "success", message: "校验成功！" });
+      }
+    },
+    async fullValidEvent() {
+      const errMap = await this.$refs.xTable.fullValidate();
+      if (errMap) {
+        const msgList = [];
+        Object.values(errMap).forEach((errList) => {
+          errList.forEach((params) => {
+            const { row, column, rules } = params;
+            rules.forEach((rule) => {
+              msgList.push(
+                `${row.name} -> ${column.title} 校验错误：${rule.message}`
+              );
+            });
+          });
+        });
+        VXETable.modal.message({
+          status: "error",
+          slots: {
+            default() {
+              return [
+                <div class="red" style="max-height: 400px;overflow: auto;">
+                  {msgList.map((msg) => {
+                    return <div>{msg}</div>;
+                  })}
+                </div>,
+              ];
+            },
+          },
+        });
+      } else {
+        VXETable.modal.message({ status: "success", message: "校验成功！" });
+      }
+    },
+    async selectValidEvent() {
+      const $table = this.$refs.xTable;
+      const selectRecords = $table.getCheckboxRecords();
+      if (selectRecords.length > 0) {
+        const errMap = await $table
+          .validate(selectRecords)
+          .catch((errMap) => errMap);
+        if (errMap) {
+          VXETable.modal.message({ status: "error", message: "校验不通过！" });
+        } else {
+          VXETable.modal.message({ status: "success", message: "校验成功！" });
+        }
+      } else {
+        VXETable.modal.message({ status: "warning", message: "未选中数据！" });
+      }
+    },
+    getSelectEvent() {
+      let selectRecords = this.$refs.xTable.getCheckboxRecords();
+      VXETable.modal.alert(selectRecords.length);
+    },
+    getUpdateEvent() {
+      let updateRecords = this.$refs.xTable.getUpdateRecords();
+      VXETable.modal.alert(updateRecords.length);
+    },
+  },
+};
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped>
-h3 {
-  margin: 40px 0 0;
-}
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-li {
-  display: inline-block;
-  margin: 0 10px;
-}
-a {
-  color: #42b983;
-}
-</style>
+<style scoped></style>
